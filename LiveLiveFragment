@@ -1,0 +1,442 @@
+package ru.site.Fragments;
+
+import android.os.Bundle;
+import android.os.Handler;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v4.widget.SwipeRefreshLayout;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import ru.site.Adapters.GamesAdapter;
+import ru.site.Adapters.LiveLiveAdapter;
+import ru.site.Adapters.RobobetDividerItemDecoration;
+import ru.site.Api.ApiClient;
+import ru.site.Api.ApiInterface;
+import ru.site.MainActivity;
+import ru.site.ModelsResponse.GamesResponse;
+import ru.site.ModelsResponse.ListResultDetailResponse;
+import ru.site.ModelsResponse.LiveLeaguesResponse;
+import ru.site.ModelsResponse.LiveMatchesResponse;
+import ru.site.ModelsResponse.LiveResultDetailResponseSocket;
+import ru.site.ModelsResponse.LiveResultResponse;
+import ru.site.ModelsResponse.LiveResultResponseSocket;
+import ru.site.ModelsResponse.TimeListenResponse;
+import ru.site.R;
+import ru.site.WebSocket.Wamp;
+import ru.site.WebSocket.WampConnection;
+
+public class LiveLiveFragment extends BaseFragment{
+
+    private RecyclerView gamesView;
+    public GamesAdapter gamesAdapter;
+    private RecyclerView mainView;
+    public LiveLiveAdapter mainAdapter;
+    public ProgressBar progressBar;
+    public RelativeLayout rlNotData;
+    public SwipeRefreshLayout swipeRefreshLayout;
+    public RelativeLayout rvList;
+    private ImageView robobetRvL;
+    private ImageView robobetRvR;
+    public TextView txtNotData;
+
+    private int lastVisibleItem, totalItemCount;
+    private int firstVisibleItem = 0;
+
+    private LinearLayoutManager linearLayoutManagerGames;
+    private LinearLayoutManager linearLayoutManagerMain;
+
+    private LiveFragment parent;
+    public Map<String, String> params = new HashMap<>();
+
+    public List<LiveMatchesResponse.Data> leaguesLive = new ArrayList<>();
+    public List<LiveLeaguesResponse.Data> leaguesTempAll = new ArrayList<>();
+    public List<LiveMatchesResponse.Data> leaguesAll = new ArrayList<>();
+    public List<ListResultDetailResponse> liveResults = new ArrayList<>();
+
+    private final Wamp mConnection = new WampConnection();
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_live_live, container, false);
+
+        gamesView = (RecyclerView) view.findViewById(R.id.recycler_view_games);
+        mainView = (RecyclerView) view.findViewById(R.id.recycler_view_main);
+        progressBar = (ProgressBar) view.findViewById(R.id.progress_bar);
+        swipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipeRefreshLayout);
+        rlNotData = (RelativeLayout) view.findViewById(R.id.rl_not_data);
+        rvList = (RelativeLayout) view.findViewById(R.id.rv_list);
+        robobetRvL = (ImageView) view.findViewById(R.id.robobet_rv_l);
+        robobetRvR = (ImageView) view.findViewById(R.id.robobet_rv_r);
+        txtNotData = (TextView) view.findViewById(R.id.txt_not_data);
+
+        RelativeLayout robobetRlL = (RelativeLayout) view.findViewById(R.id.rl_rv_l);
+        RelativeLayout robobetRlR = (RelativeLayout) view.findViewById(R.id.rl_rv_r);
+
+        swipeRefreshLayout.setColorSchemeResources(R.color.colorAccent);
+
+        FragmentManager fm = getActivity().getSupportFragmentManager();
+        FragmentTransaction ft = fm.beginTransaction();
+        parent = (LiveFragment) fm.findFragmentByTag("SampleFragment");
+
+        linearLayoutManagerGames = (LinearLayoutManager) gamesView.getLayoutManager();
+        linearLayoutManagerGames.setOrientation(LinearLayoutManager.HORIZONTAL);
+        gamesAdapter = new GamesAdapter(parent.games);
+        gamesView.setAdapter(gamesAdapter);
+
+//        mainView.setHasFixedSize(true);
+        mainView.addItemDecoration(new RobobetDividerItemDecoration(getContext()));
+        linearLayoutManagerMain = (LinearLayoutManager) mainView.getLayoutManager();
+        linearLayoutManagerMain.setOrientation(LinearLayoutManager.VERTICAL);
+        mainAdapter = new LiveLiveAdapter(getActivity(), leaguesLive, liveResults);
+        mainView.setAdapter(mainAdapter);
+
+        params.put("sport", "1");
+        progressBar.setVisibility(View.VISIBLE);
+        rlNotData.setVisibility(View.VISIBLE);
+        initLeagues(params);
+
+        gamesAdapter.setOnItemClickListener(new GamesAdapter.mAdapterListener() {
+            @Override
+            public void onItemClick(View v, int position) {
+                GamesResponse.Data game = parent.games.get(position);
+
+                for(Map.Entry<String, String> entry : params.entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    if (key.equals("sport")) {
+                        params.remove(key);
+                        break;
+                    }
+                }
+                txtNotData.setVisibility(View.GONE);
+                rlNotData.setVisibility(View.VISIBLE);
+                progressBar.setVisibility(View.VISIBLE);
+                params.put("sport", game.getId());
+                initLeagues(params);
+            }
+        });
+
+        mainAdapter.setOnItemClickListener(new LiveLiveAdapter.mAdapterListener() {
+            @Override
+            public void onCommandsClick(View v, int position, LiveMatchesResponse.Data.Match match) {
+
+            }
+
+            @Override
+            public void onStarClick(View v, int position, LiveMatchesResponse.Data.Match match, String logoLeague) {
+
+                if (parent.dbFavoriteMatches.isFavoriteMatch(match.getId(), parent.accountId)) {
+                    parent.dbFavoriteMatches.deleteFavoriteMatchByMatchId(match.getId(), parent.accountId);
+                } else {
+//                    parent.dbFavoriteMatches.deleteAllFavoriteMatches();
+                    HashMap<String, String> paramFavoriteMatch = new HashMap<>();
+                    paramFavoriteMatch.put("account_id", String.valueOf(parent.accountId));
+                    paramFavoriteMatch.put("league_id", match.getLeague_id());
+                    paramFavoriteMatch.put("league_logo", match.getLeague_id());
+                    paramFavoriteMatch.put("match_id", match.getId());
+                    paramFavoriteMatch.put("league", match.getLeague());
+                    paramFavoriteMatch.put("sport", match.getSport());
+                    paramFavoriteMatch.put("date", match.getDate());
+                    paramFavoriteMatch.put("home", match.getHome());
+                    paramFavoriteMatch.put("away", match.getAway());
+                    parent.dbFavoriteMatches.createFavoriteMatch(paramFavoriteMatch);
+                }
+                int countFavoriteMatches = parent.dbFavoriteMatches.countFavoriteMatchesByAсcountId(parent.accountId);
+                parent.txtCountMyLive.setText(String.valueOf(countFavoriteMatches));
+            }
+        });
+
+        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                txtNotData.setVisibility(View.GONE);
+                rlNotData.setVisibility(View.VISIBLE);
+                progressBar.setVisibility(View.VISIBLE);
+                initLeagues(params);
+            }
+        });
+
+        gamesView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                totalItemCount = linearLayoutManagerGames.getItemCount();
+                firstVisibleItem = linearLayoutManagerGames.findFirstVisibleItemPosition();
+                lastVisibleItem = linearLayoutManagerGames.findLastVisibleItemPosition();
+
+                if (firstVisibleItem == 0) {
+                    robobetRvL.setImageResource(R.drawable.blue_arrow_robo_l);
+                } else {
+                    robobetRvL.setImageResource(R.drawable.white_arrow_robo_l);
+                }
+
+                if (lastVisibleItem == (totalItemCount-1)) {
+                    robobetRvR.setImageResource(R.drawable.blue_arrow_robo_r);
+                } else {
+                    robobetRvR.setImageResource(R.drawable.white_arrow_robo_r);
+                }
+            }
+        });
+
+        robobetRlL.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (firstVisibleItem != 0) {
+                    linearLayoutManagerGames.scrollToPosition(firstVisibleItem-1);
+                }
+            }
+        });
+
+        robobetRlR.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (lastVisibleItem != (totalItemCount-1)) {
+                    linearLayoutManagerGames.scrollToPosition(lastVisibleItem+1);
+                }
+            }
+        });
+
+        return view;
+    }
+
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    public void onPrepareOptionsMenu(Menu menu) {
+        if (menu != null) {
+            MenuItem item = menu.findItem(R.id.action_live_calendar);
+            if (item != null) {
+                item.setVisible(false);
+            }
+        }
+    }
+
+    public void initLeagues(Map<String, String> myParams) {
+
+        Map<String, String> myParamsTemp = new HashMap<>();
+        myParamsTemp.putAll(myParams);
+        params.clear();
+        params.putAll(myParamsTemp);
+
+        ApiInterface apiService = ApiClient.getClient().create(ApiInterface.class);
+        Call<LiveLeaguesResponse> call = apiService.getLiveLeagues(params);
+        call.enqueue(new Callback<LiveLeaguesResponse>() {
+            @Override
+            public void onResponse(Call<LiveLeaguesResponse> call, Response<LiveLeaguesResponse> response) {
+                String status = response.body().getStatus();
+
+                if (status.equals("OK")) {
+                    leaguesTempAll.clear();
+                    leaguesAll.clear();
+                    leaguesLive.clear();
+
+
+                    leaguesTempAll.addAll(response.body().getData());
+                    swipeRefreshLayout.setRefreshing(false);
+                    leaguesLive.clear();
+                    mainAdapter.notifyDataSetChanged();
+
+                    for(Map.Entry<String, String> entry : params.entrySet()) {
+                        String key = entry.getKey();
+                        String value = entry.getValue();
+                        if (key.equals("sport")) {
+                            initLeaguesTemp(value);
+                            break;
+                        }
+                    }
+                } else {
+                    swipeRefreshLayout.setRefreshing(false);
+                    progressBar.setVisibility(View.GONE);
+                    txtNotData.setVisibility(View.VISIBLE);
+                    rlNotData.setVisibility(View.VISIBLE);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<LiveLeaguesResponse> call, Throwable t) {
+                if (t instanceof IOException){
+                    showMessage(R.string.no_internet);
+                } else {
+                    showMessage(R.string.unknown_error);
+                }
+                swipeRefreshLayout.setRefreshing(false);
+                progressBar.setVisibility(View.GONE);
+                txtNotData.setVisibility(View.VISIBLE);
+                rlNotData.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
+    public void initLeaguesTemp(String sportId) {
+        int step = 1;
+        for (LiveLeaguesResponse.Data league : leaguesTempAll) {
+            initMatches(sportId, league.getLeague_id(), step);
+            step++;
+        }
+    }
+
+    public void initMatches(String sportId, final String leagueId, final int stepArray) {
+
+
+        ApiInterface apiService = ApiClient.getClient().create(ApiInterface.class);
+        Call<LiveMatchesResponse> call = apiService.getLiveMatches(sportId, leagueId, "");
+        call.enqueue(new Callback<LiveMatchesResponse>() {
+            @Override
+            public void onResponse(Call<LiveMatchesResponse> call, Response<LiveMatchesResponse> response) {
+                String status = response.body().getStatus();
+
+                if (status.equals("OK")) {
+                    leaguesAll.addAll(response.body().getData());
+
+                    for (LiveMatchesResponse.Data league : response.body().getData()) {
+                        boolean flagFind = false;
+                        for (LiveMatchesResponse.Data.Match match : league.getData()) {
+                            if (match.getLive().equals("1") && !flagFind) {
+                                leaguesLive.add(league);
+                                flagFind = true;
+                                mainAdapter.notifyDataSetChanged();
+                                rlNotData.setVisibility(View.GONE);
+                                txtNotData.setVisibility(View.GONE);
+                            }
+                        }
+                    }
+                }
+                if (stepArray == leaguesTempAll.size()) {
+                    progressBar.setVisibility(View.GONE);
+                    if (leaguesLive.size() > 0) {
+                        rlNotData.setVisibility(View.GONE);
+                        txtNotData.setVisibility(View.GONE);
+                        initTimeListen();
+                    } else {
+                        txtNotData.setVisibility(View.VISIBLE);
+                        rlNotData.setVisibility(View.VISIBLE);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<LiveMatchesResponse> call, Throwable t) {
+                if (t instanceof IOException){
+                    showMessage(R.string.no_internet);
+                } else {
+                    showMessage(R.string.unknown_error);
+                }
+            }
+        });
+    }
+
+    private void initTimeListen() {
+        mConnection.disconnect();
+        ApiInterface apiService = ApiClient.getClient().create(ApiInterface.class);
+        Call<TimeListenResponse> call = apiService.getTimeListen();
+        call.enqueue(new Callback<TimeListenResponse>() {
+            @Override
+            public void onResponse(Call<TimeListenResponse> call, Response<TimeListenResponse> response) {
+                String status = response.body().getStatus();
+
+                if (status.equals("OK")) {
+                    if (response.body().getData().getType().equals("time")) {
+                        final int timeStep = response.body().getData().getInterval();
+                        final Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                liveResults.clear();
+                                ApiInterface apiService = ApiClient.getClient().create(ApiInterface.class);
+                                Call<LiveResultResponse> call = apiService.getLiveResult();
+                                call.enqueue(new Callback<LiveResultResponse>() {
+                                    @Override
+                                    public void onResponse(Call<LiveResultResponse> call, Response<LiveResultResponse> response) {
+                                        liveResults = response.body().getList();
+                                        mainAdapter.swapLiveResultSet(liveResults);
+                                    }
+
+                                    @Override
+                                    public void onFailure(Call<LiveResultResponse> call, Throwable t) {
+
+                                    }
+                                });
+                                handler.postDelayed(this, timeStep);
+                            }
+                        }, timeStep);
+                    } else if (response.body().getData().getType().equals("socket")) {
+                        connectWebSocket();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<TimeListenResponse> call, Throwable t) {
+
+            }
+        });
+    }
+
+
+    private void connectWebSocket() {
+
+        final String wsuri = "ws://0ws.site.ru:80";
+
+        mConnection.connect(wsuri, new Wamp.ConnectionHandler() {
+            public void onOpen() {
+                Log.d("mSocket", "Connect to " + wsuri);
+                mConnection.subscribe("livescores", LiveResultResponseSocket.class, new Wamp.EventHandler() {
+                    @Override
+                    public void onEvent(String topicUri, Object event) {
+
+                        LiveResultResponseSocket myevent = (LiveResultResponseSocket) event;
+                        Log.d("mSocket", "Subscribe " + String.valueOf(myevent.getList().size()));
+                        liveResults.clear();
+                        for (LiveResultDetailResponseSocket live : myevent.getList()) {
+                            ListResultDetailResponse tempLive = new ListResultDetailResponse(live.getDate(),
+                                    live.isFinished(),
+                                    live.getName(),
+                                    live.getLeague(),
+                                    live.getId(),
+                                    live.getResult(),
+                                    live.getRes1(),
+                                    live.getRes2(),
+                                    live.getLivetime());
+                            liveResults.add(tempLive);
+                        }
+                        mainAdapter.swapLiveResultSet(liveResults);
+                    }
+                });
+            }
+
+            public void onClose(int code, String reason) {
+                Log.d("mSocket", "Connection lost." + reason);
+            }
+        });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ((MainActivity) getActivity()).getSupportActionBar().setTitle("LIVE");
+        mConnection.disconnect();
+    }
+}
