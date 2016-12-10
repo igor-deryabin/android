@@ -1,0 +1,139 @@
+<RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/textView26"
+                android:layout_below="@+id/textView45"
+                android:background="#efb607">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:id="@+id/textView15"
+                    android:text="Примеры отчетов"
+                    android:textColor="#ffffff"
+                    android:textSize="19sp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:paddingLeft="24dp"
+                    android:paddingRight="24dp"
+                    android:layout_marginBottom="25dp"/>
+
+                <RelativeLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@+id/textView15"
+                    android:background="@drawable/challengy_new_bg_bubble"
+                    android:translationX="20dp"
+                    android:rotation="-5"
+                    android:id="@+id/view8_344"
+                    android:layout_marginTop="20dp"
+                    android:layout_marginBottom="30dp"
+                    android:layout_marginRight="80dp"
+                    android:layout_marginEnd="80dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:id="@+id/view7_344">
+
+                        <de.hdodenhof.circleimageview.CircleImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_gravity="center"
+                            android:layout_marginRight="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/userpic"
+                            android:id="@+id/view7_3" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center_vertical"
+                            android:textColor="#000000"
+                            android:text="Эштон Иванов"/>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/text"
+                        android:layout_below="@+id/view7_344"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:textColor="#313131"
+                        android:textSize="12sp"
+                        android:text="Я пробежал всю дистанцию всего за 10 минут! Попробуйте опередить меня :-)"
+                        />
+
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/textView433"
+                    android:layout_below="@+id/view8_344"
+                    android:rotation="5"
+                    android:layout_marginLeft="80dp"
+                    android:layout_marginStart="80dp"
+                    android:layout_marginTop="-40dp"
+                    android:layout_marginBottom="20dp"
+                    android:layout_marginRight="-20dp"
+                    android:layout_marginEnd="-20dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/challengy_text_border_shape" >
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="8 комментариев"
+                            android:textColor="#8e8e8e"
+                            android:textSize="11sp"/>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="Джозеф Иванов"
+                            android:textColor="#000000"
+                            android:textSize="12sp"
+                            android:textStyle="bold"/>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="@string/challengy_new_comment_example1"
+                            android:textColor="#000000"
+                            android:textSize="12sp"/>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Эштон Иванов"
+                            android:textColor="#000000"
+                            android:textSize="12sp"
+                            android:textStyle="bold"/>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="@string/challengy_new_comment_example2"
+                            android:textColor="#000000"
+                            android:textSize="12sp"/>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="комментировать"
+                            android:textColor="#8e8e8e"
+                            android:textSize="11sp"/>
+                    </LinearLayout>
+                </RelativeLayout>
+            </RelativeLayout>
